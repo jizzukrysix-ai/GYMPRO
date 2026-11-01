@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BodyPump Pro</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    <style>
+        :root { --primary: #ff4757; --bg: #0f1016; --card: #1a1c24; --text: #ffffff; --accent: #2ed573; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
+        .tab-content { display: none; padding: 20px; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 15px 20px; border-radius: 0 0 20px 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .stat-badge { background: rgba(255,71,87,0.15); color: var(--primary); padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+        
+        .card { background: var(--card); border-radius: 16px; padding: 18px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.05); }
+        .btn { background: linear-gradient(135deg, var(--primary), #ff6b81); color: #fff; border: none; padding: 14px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; box-shadow: 0 4px 15px rgba(255,71,87,0.4); }
+        .btn-secondary { background: rgba(46,213,115,0.15); color: var(--accent); border: 1px solid var(--accent); }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #15171e; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+        .nav-item { color: #747d8c; text-decoration: none; font-size: 11px; border: none; background: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .timer-display { font-size: 52px; text-align: center; margin: 15px 0; font-weight: 800; letter-spacing: 2px; color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h3>⚡ BodyPump Hub</h3>
+        <div class="stat-badge">💎 <span id="energyPoints">500</span> pts</div>
+    </div>
+
+    <!-- Tab 1: Workouts -->
+    <div id="workouts" class="tab-content active">
+        <h2>🏋️ Active Routine</h2>
+        <div class="card">
+            <h4>Barbell Chest Press</h4>
+            <p style="color: #a4b0be; font-size: 13px;">4 Sets × 10 Reps • Multiplier Active: <span id="activeMultiplier">1x</span></p>
+            <button class="btn" onclick="completeWorkout()">Log Workout (+50 Points)</button>
+        </div>
+    </div>
+
+    <!-- Tab 2: Interactive Timer & Speed Booster -->
+    <div id="timer" class="tab-content">
+        <h2>⏱️ Rest & Speed Timer</h2>
+        <div class="card">
+            <div class="timer-display" id="timeDisplay">00:45</div>
+            <p style="text-align: center; color: #a4b0be; font-size: 12px;" id="downtimeStatus">Standard Rest Interval</p>
+            <button class="btn" onclick="startTimer()">Start Rest Countdown</button>
+        </div>
+    </div>
+
+    <!-- Tab 3: Boosters Shop (New Feature) -->
+    <div id="boosters" class="tab-content">
+        <h2>🚀 Boosters & Perks</h2>
+        <div class="card">
+            <h4>🔥 Mining Multiplier</h4>
+            <p style="color: #a4b0be; font-size: 13px;">Double your workout points earnings per action.</p>
+            <button class="btn btn-secondary" onclick="buyBooster('mining', 200)">Upgrade to 2x (Cost: 200 pts)</button>
+        </div>
+        <div class="card">
+            <h4>⚡ Reduced Downtime</h4>
+            <p style="color: #a4b0be; font-size: 13px;">Cut your rest timer duration down by 50%.</p>
+            <button class="btn btn-secondary" onclick="buyBooster('downtime', 150)">Activate Speed (Cost: 150 pts)</button>
+        </div>
+        <div class="card">
+            <h4>📺 Free Energy Vault</h4>
+            <p style="color: #a4b0be; font-size: 13px;">Watch a short sponsored video to claim +150 bonus points instantly.</p>
+            <button class="btn" onclick="triggerAdsgramReward()">Watch Ad (+150 pts)</button>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('workouts', this)">🏋️ Workouts</button>
+        <button class="nav-item" onclick="switchTab('timer', this)">⏱️ Timer</button>
+        <button class="nav-item" onclick="switchTab('boosters', this)">🚀 Boosters</button>
+    </nav>
+
+    <script>
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+
+        let points = 500;
+        let miningMultiplier = 1;
+        let downtimeReduction = false;
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function updateUI() {
+            document.getElementById('energyPoints').textContent = points;
+            document.getElementById('activeMultiplier').textContent = miningMultiplier + 'x';
+        }
+
+        function completeWorkout() {
+            let earned = 50 * miningMultiplier;
+            points += earned;
+            updateUI();
+            alert(`Workout logged! Earned +${earned} points.`);
+        }
+
+        let countdown;
+        function startTimer() {
+            clearInterval(countdown);
+            // Reduced downtime booster cuts 60s down to 30s
+            let time = downtimeReduction ? 30 : 60; 
+            const display = document.getElementById('timeDisplay');
+            countdown = setInterval(() => {
+                let mins = Math.floor(time / 60);
+                let secs = time % 60;
+                display.textContent = `0${mins}:${secs.toString().padStart(2, '0')}`;
+                if (--time < 0) clearInterval(countdown);
+            }, 1000);
+        }
+
+        function buyBooster(type, cost) {
+            if (points < cost) {
+                alert("Not enough points! Watch ads or log workouts to earn more.");
+                return;
+            }
+            points -= cost;
+            if (type === 'mining') {
+                miningMultiplier = 2;
+                alert("Mining Multiplier upgraded to 2x!");
+            } else if (type === 'downtime') {
+                downtimeReduction = true;
+                document.getElementById('downtimeStatus').textContent = "Reduced Downtime Active (-50% timer)";
+                alert("Reduced Downtime booster activated!");
+            }
+            updateUI();
+        }
+
+        const AdController = window.Adsgram.init({ blockId: "YOUR_ADSGRAM_BLOCK_ID", debug: false });
+
+        async function triggerAdsgramReward() {
+            try {
+                const result = await AdController.show();
+                if (result.done) {
+                    points += 150;
+                    updateUI();
+                    alert("Reward claimed! +150 points added.");
+                }
+            } catch (error) {
+                console.warn("Ad skipped or failed:", error);
+            }
+        }
+    </script>
+</body>
+</html>
